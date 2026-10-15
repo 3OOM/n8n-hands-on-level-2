@@ -1,0 +1,700 @@
+{
+  "name": "Topic 3 - Lead Data Quality & Deduplication Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e81d7234-9241-4777-a8a2-2591b988f610",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      id: 1,\n      fullName: \"  sarah CONNOR  \",\n      email: \"Sarah.Connor@Cyberdyne.com\",\n      phone: \"+1 (555) 019-2834\"\n    }\n  },\n  {\n    json: {\n      id: 2,\n      fullName: \"Johnathan DOE\",\n      email: \"  john.doe@enterprise.org  \",\n      phone: \"1-800-555-0199\"\n    }\n  },\n  {\n    json: {\n      id: 3,\n      fullName: \"   \",\n      email: \"missing.name@test.com\",\n      phone: \"555-0123\"\n    }\n  },\n  {\n    json: {\n      id: 4,\n      fullName: \"Sarah Connor\",\n      email: \"sarah.connor@cyberdyne.com\",\n      phone: \"5550192834\"\n    }\n  },\n  {\n    json: {\n      id: 5,\n      fullName: \"Anna Lee\",\n      email: \"Anna.Lee@TechStart.io\",\n      phone: \"+44 20 7946 0912\"\n    }\n  },\n  {\n    json: {\n      id: 6,\n      fullName: \"Bob Vance\",\n      email: \"\",\n      phone: \"+1 555-839-2011\"\n    }\n  },\n  {\n    json: {\n      id: 7,\n      fullName: \"ANNA LEE\",\n      email: \"   anna.lee@techstart.io   \",\n      phone: \"020-7946-0912\"\n    }\n  },\n  {\n    json: {\n      id: 8,\n      fullName: \"Carlos Mendoza\",\n      email: \"carlos.mendoza@solarsys.es\",\n      phone: \"+34 (91) 123-4567\"\n    }\n  }\n];"
+      },
+      "id": "3bb8cf61-9c17-48f0-b98a-1a89c3db6d42",
+      "name": "Mock_Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "673fbb39-b9ee-4712-9c47-eb54e246cf7e",
+              "leftValue": "={{ Boolean($json.fullName && $json.fullName.trim().length > 0) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "a90184ce-69fe-4428-a6e5-4f323793dfbe",
+              "leftValue": "={{ Boolean($json.email && $json.email.trim().length > 0) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "5f1bc09e-716b-4e69-8132-349f2b84eb92",
+      "name": "Validate_Required_Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "id",
+              "type": "number",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "cleanedName",
+              "type": "string",
+              "value": "={{ $json.fullName.trim().split(' ').filter(part => part.length > 0).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') }}"
+            },
+            {
+              "name": "cleanedEmail",
+              "type": "string",
+              "value": "={{ $json.email.trim().toLowerCase() }}"
+            },
+            {
+              "name": "cleanedPhone",
+              "type": "string",
+              "value": "={{ $json.phone ? $json.phone.replace(/[^0-9]/g, '') : '' }}"
+            },
+            {
+              "name": "normalizedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7dcfa498-842b-4ba9-9dc8-53b70868f0cb",
+      "name": "Clean_Standardize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1000,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "id",
+              "type": "number",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "rawName",
+              "type": "string",
+              "value": "={{ $json.fullName || null }}"
+            },
+            {
+              "name": "rawEmail",
+              "type": "string",
+              "value": "={{ $json.email || null }}"
+            },
+            {
+              "name": "rawPhone",
+              "type": "string",
+              "value": "={{ $json.phone || null }}"
+            },
+            {
+              "name": "validationStatus",
+              "type": "string",
+              "value": "REJECTED"
+            },
+            {
+              "name": "rejectionReason",
+              "type": "string",
+              "value": "Missing required field: fullName or email is blank/missing"
+            },
+            {
+              "name": "rejectedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e3020cb4-77db-452f-9818-f0761e70487f",
+      "name": "Rejected_Missing_Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1000,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": {
+          "fields": [
+            {
+              "fieldName": "cleanedEmail"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b2e88a0-cd92-48df-b4a1-79752adab799",
+      "name": "Remove_Duplicates",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "id",
+              "type": "number",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "value": "={{ $json.cleanedName }}"
+            },
+            {
+              "name": "email",
+              "type": "string",
+              "value": "={{ $json.cleanedEmail }}"
+            },
+            {
+              "name": "phone",
+              "type": "string",
+              "value": "={{ $json.cleanedPhone }}"
+            },
+            {
+              "name": "originalEmail",
+              "type": "string",
+              "value": "={{ $('Mock_Leads').item.json.email }}"
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "value": "PROCESSED_ACTIVE_LEAD"
+            },
+            {
+              "name": "crmSyncReady",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "processedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "28f4ccb2-601e-4509-9060-da8ccdb5c5be",
+      "name": "Map_Final_Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📌 Step 1: Mock Lead Ingestion\nInjects 8 diverse test leads simulating noisy signup forms:\n- Missing fullNames / blank strings\n- Missing emails\n- Inconsistent casing & whitespace\n- International & symbol-laden phone numbers\n- Exact duplicate entries (Sarah Connor & Anna Lee)",
+        "height": 220,
+        "width": 380,
+        "color": 6
+      },
+      "id": "8470ee64-cb4e-4f05-8321-72944b79b691",
+      "name": "Sticky_Ingestion",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🛡️ Step 2: Required Field Validation\nVerifies presence of both `fullName` and `email`:\n- Valid leads ➔ Cleansing Path (True)\n- Incomplete leads ➔ `Rejected_Missing_Fields` (False)\nPrevents workflow termination on invalid data.",
+        "height": 220,
+        "width": 320,
+        "color": 4
+      },
+      "id": "18f9dfd7-849a-4cce-9a3b-cbb1bdfaeae7",
+      "name": "Sticky_Validation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🧹 Step 3: Sanitization & Normalization\n- **Name:** Trim & Title Case normalization\n- **Email:** Lowercase & whitespace stripped\n- **Phone:** Regex `replace(/[^0-9]/g, '')` strips symbols, parentheses, and dashes.",
+        "height": 220,
+        "width": 320,
+        "color": 5
+      },
+      "id": "7faef9f1-325d-4f10-96f7-c20e171b3e8e",
+      "name": "Sticky_Sanitization",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        980,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔍 Step 4: Intelligent Deduplication\nCompares against `cleanedEmail` within the active batch.\n- Duplicate #4 (Sarah Connor) is discarded.\n- Duplicate #7 (Anna Lee) is discarded.\nOnly first unique occurrences proceed downstream.",
+        "height": 220,
+        "width": 300,
+        "color": 2
+      },
+      "id": "673f8e5b-3810-449e-97c7-5ea0cbda413e",
+      "name": "Sticky_Deduplication",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🎯 Step 5: CRM-Ready Output Synthesis\n- Structures uniform lead object\n- Retains `originalEmail` via cross-node lookup `$('Mock_Leads')`\n- Sets status to `PROCESSED_ACTIVE_LEAD`\n- Marks `crmSyncReady: true`",
+        "height": 220,
+        "width": 320,
+        "color": 7
+      },
+      "id": "8c5da88b-6663-4a00-ab83-659f7b49463c",
+      "name": "Sticky_Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        -40
+      ]
+    }
+  ],
+  "pinData": {
+    "Mock_Leads": [
+      {
+        "json": {
+          "id": 1,
+          "fullName": "  sarah CONNOR  ",
+          "email": "Sarah.Connor@Cyberdyne.com",
+          "phone": "+1 (555) 019-2834"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "fullName": "Johnathan DOE",
+          "email": "  john.doe@enterprise.org  ",
+          "phone": "1-800-555-0199"
+        }
+      },
+      {
+        "json": {
+          "id": 3,
+          "fullName": "   ",
+          "email": "missing.name@test.com",
+          "phone": "555-0123"
+        }
+      },
+      {
+        "json": {
+          "id": 4,
+          "fullName": "Sarah Connor",
+          "email": "sarah.connor@cyberdyne.com",
+          "phone": "5550192834"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "fullName": "Anna Lee",
+          "email": "Anna.Lee@TechStart.io",
+          "phone": "+44 20 7946 0912"
+        }
+      },
+      {
+        "json": {
+          "id": 6,
+          "fullName": "Bob Vance",
+          "email": "",
+          "phone": "+1 555-839-2011"
+        }
+      },
+      {
+        "json": {
+          "id": 7,
+          "fullName": "ANNA LEE",
+          "email": "   anna.lee@techstart.io   ",
+          "phone": "020-7946-0912"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "fullName": "Carlos Mendoza",
+          "email": "carlos.mendoza@solarsys.es",
+          "phone": "+34 (91) 123-4567"
+        }
+      }
+    ],
+    "Validate_Required_Fields": [
+      {
+        "json": {
+          "id": 1,
+          "fullName": "  sarah CONNOR  ",
+          "email": "Sarah.Connor@Cyberdyne.com",
+          "phone": "+1 (555) 019-2834"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "fullName": "Johnathan DOE",
+          "email": "  john.doe@enterprise.org  ",
+          "phone": "1-800-555-0199"
+        }
+      },
+      {
+        "json": {
+          "id": 4,
+          "fullName": "Sarah Connor",
+          "email": "sarah.connor@cyberdyne.com",
+          "phone": "5550192834"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "fullName": "Anna Lee",
+          "email": "Anna.Lee@TechStart.io",
+          "phone": "+44 20 7946 0912"
+        }
+      },
+      {
+        "json": {
+          "id": 7,
+          "fullName": "ANNA LEE",
+          "email": "   anna.lee@techstart.io   ",
+          "phone": "020-7946-0912"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "fullName": "Carlos Mendoza",
+          "email": "carlos.mendoza@solarsys.es",
+          "phone": "+34 (91) 123-4567"
+        }
+      }
+    ],
+    "Rejected_Missing_Fields": [
+      {
+        "json": {
+          "id": 3,
+          "rawName": null,
+          "rawEmail": "missing.name@test.com",
+          "rawPhone": "555-0123",
+          "validationStatus": "REJECTED",
+          "rejectionReason": "Missing required field: fullName or email is blank/missing",
+          "rejectedAt": "2026-10-15T14:22:10.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 6,
+          "rawName": "Bob Vance",
+          "rawEmail": null,
+          "rawPhone": "+1 555-839-2011",
+          "validationStatus": "REJECTED",
+          "rejectionReason": "Missing required field: fullName or email is blank/missing",
+          "rejectedAt": "2026-10-15T14:22:10.000Z"
+        }
+      }
+    ],
+    "Clean_Standardize": [
+      {
+        "json": {
+          "id": 1,
+          "cleanedName": "Sarah Connor",
+          "cleanedEmail": "sarah.connor@cyberdyne.com",
+          "cleanedPhone": "15550192834",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "cleanedName": "Johnathan Doe",
+          "cleanedEmail": "john.doe@enterprise.org",
+          "cleanedPhone": "18005550199",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 4,
+          "cleanedName": "Sarah Connor",
+          "cleanedEmail": "sarah.connor@cyberdyne.com",
+          "cleanedPhone": "5550192834",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "cleanedName": "Anna Lee",
+          "cleanedEmail": "anna.lee@techstart.io",
+          "cleanedPhone": "442079460912",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 7,
+          "cleanedName": "Anna Lee",
+          "cleanedEmail": "anna.lee@techstart.io",
+          "cleanedPhone": "02079460912",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "cleanedName": "Carlos Mendoza",
+          "cleanedEmail": "carlos.mendoza@solarsys.es",
+          "cleanedPhone": "34911234567",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      }
+    ],
+    "Remove_Duplicates": [
+      {
+        "json": {
+          "id": 1,
+          "cleanedName": "Sarah Connor",
+          "cleanedEmail": "sarah.connor@cyberdyne.com",
+          "cleanedPhone": "15550192834",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "cleanedName": "Johnathan Doe",
+          "cleanedEmail": "john.doe@enterprise.org",
+          "cleanedPhone": "18005550199",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "cleanedName": "Anna Lee",
+          "cleanedEmail": "anna.lee@techstart.io",
+          "cleanedPhone": "442079460912",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "cleanedName": "Carlos Mendoza",
+          "cleanedEmail": "carlos.mendoza@solarsys.es",
+          "cleanedPhone": "34911234567",
+          "normalizedAt": "2026-10-15T14:22:11.000Z"
+        }
+      }
+    ],
+    "Map_Final_Output": [
+      {
+        "json": {
+          "id": 1,
+          "name": "Sarah Connor",
+          "email": "sarah.connor@cyberdyne.com",
+          "phone": "15550192834",
+          "originalEmail": "Sarah.Connor@Cyberdyne.com",
+          "status": "PROCESSED_ACTIVE_LEAD",
+          "crmSyncReady": true,
+          "processedAt": "2026-10-15T14:22:12.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "name": "Johnathan Doe",
+          "email": "john.doe@enterprise.org",
+          "phone": "18005550199",
+          "originalEmail": "  john.doe@enterprise.org  ",
+          "status": "PROCESSED_ACTIVE_LEAD",
+          "crmSyncReady": true,
+          "processedAt": "2026-10-15T14:22:12.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "name": "Anna Lee",
+          "email": "anna.lee@techstart.io",
+          "phone": "442079460912",
+          "originalEmail": "Anna.Lee@TechStart.io",
+          "status": "PROCESSED_ACTIVE_LEAD",
+          "crmSyncReady": true,
+          "processedAt": "2026-10-15T14:22:12.000Z"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "name": "Carlos Mendoza",
+          "email": "carlos.mendoza@solarsys.es",
+          "phone": "34911234567",
+          "originalEmail": "carlos.mendoza@solarsys.es",
+          "status": "PROCESSED_ACTIVE_LEAD",
+          "crmSyncReady": true,
+          "processedAt": "2026-10-15T14:22:12.000Z"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock_Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock_Leads": {
+      "main": [
+        [
+          {
+            "node": "Validate_Required_Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate_Required_Fields": {
+      "main": [
+        [
+          {
+            "node": "Clean_Standardize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected_Missing_Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean_Standardize": {
+      "main": [
+        [
+          {
+            "node": "Remove_Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove_Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Map_Final_Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f7d5830a-2b7e-4ea5-a2f0-18471e49cb25",
+  "meta": {
+    "instanceId": "tayana-enterprise-n8n-level-2-topic-3"
+  },
+  "id": "Topic3LeadDataQualityWorkflow",
+  "tags": [
+    {
+      "name": "Level-2-Intermediate",
+      "id": "lvl2"
+    },
+    {
+      "name": "Data-Quality",
+      "id": "data-quality"
+    },
+    {
+      "name": "Deduplication",
+      "id": "dedup"
+    }
+  ]
+}
