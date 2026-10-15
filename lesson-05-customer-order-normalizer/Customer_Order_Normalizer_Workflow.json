@@ -1,0 +1,341 @@
+{
+  "name": "Customer Order Normalizer Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1a2b3c4d-0001-4000-8000-000000000001",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mock_order_id",
+              "name": "orderId",
+              "value": "  ord-98231-xyz  ",
+              "type": "string"
+            },
+            {
+              "id": "mock_customer_name",
+              "name": "customerName",
+              "value": "   jane DOE   ",
+              "type": "string"
+            },
+            {
+              "id": "mock_customer_email",
+              "name": "customerEmail",
+              "value": "Jane.Doe@AcmeCorp.COM",
+              "type": "string"
+            },
+            {
+              "id": "mock_purchase_date",
+              "name": "purchaseDate",
+              "value": "2026-10-15T09:30:00.000Z",
+              "type": "string"
+            },
+            {
+              "id": "mock_amount",
+              "name": "amount",
+              "value": 1250.75,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0002-4000-8000-000000000002",
+      "name": "Mock_Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        380,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "clean_order_id",
+              "name": "orderId",
+              "value": "={{ $json.orderId.trim().toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "clean_customer_name",
+              "name": "customerName",
+              "value": "={{ $json.customerName.trim().split(' ').filter(w => w.length > 0).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') }}",
+              "type": "string"
+            },
+            {
+              "id": "clean_customer_email",
+              "name": "customerEmail",
+              "value": "={{ $json.customerEmail.trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "clean_email_domain",
+              "name": "emailDomain",
+              "value": "={{ $json.customerEmail.includes('@') ? $json.customerEmail.trim().toLowerCase().split('@')[1] : 'unknown.com' }}",
+              "type": "string"
+            },
+            {
+              "id": "clean_amount",
+              "name": "amount",
+              "value": "={{ Number($json.amount) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0003-4000-8000-000000000003",
+      "name": "Clean_Strings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        580,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "formatted_purchase_date",
+              "name": "formattedPurchaseDate",
+              "value": "={{ $dateTime.fromISO($node[\"Mock_Data\"].json.purchaseDate).toFormat('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            },
+            {
+              "id": "sla_due_date",
+              "name": "slaDueDate",
+              "value": "={{ $dateTime.fromISO($node[\"Mock_Data\"].json.purchaseDate).plus({ days: 3 }).toFormat('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0004-4000-8000-000000000004",
+      "name": "Format_Dates",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "order_priority",
+              "name": "priority",
+              "value": "={{ $node[\"Clean_Strings\"].json.amount >= 1000 ? 'High' : ($node[\"Clean_Strings\"].json.amount >= 250 ? 'Medium' : 'Low') }}",
+              "type": "string"
+            },
+            {
+              "id": "customer_tier",
+              "name": "customerTier",
+              "value": "={{ $node[\"Clean_Strings\"].json.amount >= 1000 ? 'Tier 1 (Enterprise)' : ($node[\"Clean_Strings\"].json.amount >= 250 ? 'Tier 2 (Commercial)' : 'Tier 3 (Standard)') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0005-4000-8000-000000000005",
+      "name": "Categorize_Order",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        980,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "final_invoice_object",
+              "name": "invoice",
+              "value": "={{ \n  {\n    invoiceId: 'INV-' + $node['Clean_Strings'].json.orderId,\n    orderId: $node['Clean_Strings'].json.orderId,\n    customer: {\n      name: $node['Clean_Strings'].json.customerName,\n      email: $node['Clean_Strings'].json.customerEmail,\n      domain: $node['Clean_Strings'].json.emailDomain,\n      tier: $node['Categorize_Order'].json.customerTier\n    },\n    fulfillment: {\n      orderDate: $node['Format_Dates'].json.formattedPurchaseDate,\n      slaDueDate: $node['Format_Dates'].json.slaDueDate,\n      priority: $node['Categorize_Order'].json.priority\n    },\n    financials: {\n      subtotal: $node['Clean_Strings'].json.amount,\n      currency: 'USD'\n    },\n    metadata: {\n      status: 'NORMALIZED_AND_INVOICED',\n      processedAt: '2026-10-15T13:52:00.000Z'\n    }\n  }\n}}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0006-4000-8000-000000000006",
+      "name": "Map_Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1180,
+        360
+      ]
+    }
+  ],
+  "pinData": {
+    "Mock_Data": [
+      {
+        "json": {
+          "orderId": "  ord-98231-xyz  ",
+          "customerName": "   jane DOE   ",
+          "customerEmail": "Jane.Doe@AcmeCorp.COM",
+          "purchaseDate": "2026-10-15T09:30:00.000Z",
+          "amount": 1250.75
+        }
+      }
+    ],
+    "Clean_Strings": [
+      {
+        "json": {
+          "orderId": "ORD-98231-XYZ",
+          "customerName": "Jane Doe",
+          "customerEmail": "jane.doe@acmecorp.com",
+          "emailDomain": "acmecorp.com",
+          "amount": 1250.75
+        }
+      }
+    ],
+    "Format_Dates": [
+      {
+        "json": {
+          "formattedPurchaseDate": "2026-10-15 09:30:00",
+          "slaDueDate": "2026-10-18 09:30:00"
+        }
+      }
+    ],
+    "Categorize_Order": [
+      {
+        "json": {
+          "priority": "High",
+          "customerTier": "Tier 1 (Enterprise)"
+        }
+      }
+    ],
+    "Map_Output": [
+      {
+        "json": {
+          "invoice": {
+            "invoiceId": "INV-ORD-98231-XYZ",
+            "orderId": "ORD-98231-XYZ",
+            "customer": {
+              "name": "Jane Doe",
+              "email": "jane.doe@acmecorp.com",
+              "domain": "acmecorp.com",
+              "tier": "Tier 1 (Enterprise)"
+            },
+            "fulfillment": {
+              "orderDate": "2026-10-15 09:30:00",
+              "slaDueDate": "2026-10-18 09:30:00",
+              "priority": "High"
+            },
+            "financials": {
+              "subtotal": 1250.75,
+              "currency": "USD"
+            },
+            "metadata": {
+              "status": "NORMALIZED_AND_INVOICED",
+              "processedAt": "2026-10-15T13:52:00.000Z"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock_Data": {
+      "main": [
+        [
+          {
+            "node": "Clean_Strings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean_Strings": {
+      "main": [
+        [
+          {
+            "node": "Format_Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format_Dates": {
+      "main": [
+        [
+          {
+            "node": "Categorize_Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize_Order": {
+      "main": [
+        [
+          {
+            "node": "Map_Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2b3c4d5e-0000-4000-8000-000000000002",
+  "meta": {
+    "instanceId": "cb48e91024fbcf8d55a9b70b33e5021239aaef5488bf0a05a109bbcfd4833c8b",
+    "templateCredsSetupCompleted": true
+  },
+  "id": "CustomerOrderNormalizerWorkflow",
+  "tags": [
+    {
+      "name": "Data Normalization",
+      "id": "tag_data_norm"
+    },
+    {
+      "name": "Advanced Expressions",
+      "id": "tag_adv_expressions"
+    },
+    {
+      "name": "Cross-Node Referencing",
+      "id": "tag_cross_node"
+    }
+  ]
+}
