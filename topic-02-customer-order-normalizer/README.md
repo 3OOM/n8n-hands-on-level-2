@@ -1,9 +1,9 @@
-# Lesson 5: Customer Order Normalizer Workflow
+# Topic 2: Customer Order Normalizer Workflow
 
 > **Institution:** Tayana Academy | LMS Assessment & Hands-On Guide  
 > **Course:** N8N Hands-On — Level 2 (Intermediate)  
-> **Topic / Assessment:** Lesson 5 Assessment: Build & Demonstrate Customer Order Normalizer Workflow  
-> **Workflow Name:** `Customer Order Normalizer Workflow`  
+> **Topic / Assessment:** Topic 2: Customer Order Normalizer Workflow  
+> **Workflow Name:** `Topic 2 - Customer Order Normalizer Workflow`  
 > **Target Audience:** Automation Engineers & Integration Developers  
 > **Difficulty Level:** Intermediate  
 > **Platform Version:** n8n version 1.0.0 or higher  
@@ -35,7 +35,7 @@ This assessment implements a production-ready **Customer Order Normalizer** pipe
 
 ### Key Deliverables in this Package:
 1. **`README.md`**: Complete technical documentation covering architecture, expression blueprints, cross-node mapping patterns, test outputs, and LMS notes.
-2. **`Customer_Order_Normalizer_Workflow.json`**: Official exportable n8n workflow file containing the 5 transformation nodes with pre-pinned execution data.
+2. **`Topic_2_Customer_Order_Normalizer_Workflow.json`**: Official exportable n8n workflow file containing the 5 transformation nodes with pre-pinned execution data.
 3. **`README.pdf`**: Print-ready, professionally styled PDF document generated directly from this documentation.
 
 ---
@@ -180,7 +180,7 @@ flowchart LR
 
 ### Exercise 4 & 5 – Validation, Export, and Repository Publication
 1. Verify complete execution of the 5-node pipeline with 100% green checkmark status.
-2. Export the workflow JSON as [`Customer_Order_Normalizer_Workflow.json`](./Customer_Order_Normalizer_Workflow.json).
+2. Export the workflow JSON as [`Topic_2_Customer_Order_Normalizer_Workflow.json`](./Topic_2_Customer_Order_Normalizer_Workflow.json).
 3. Generate publication-ready PDF documentation [`README.pdf`](./README.pdf).
 4. Commit and push deliverables to public repository [`3OOM/n8n-hands-on-level-2`](https://github.com/3OOM/n8n-hands-on-level-2).
 
@@ -251,7 +251,7 @@ flowchart LR
 
 ## 7. Practical Assessment Checklist
 
-- [x] Workflow created and saved as **`Customer Order Normalizer Workflow`**.
+- [x] Workflow created and saved as **`Topic 2 - Customer Order Normalizer Workflow`**.
 - [x] Node sequence strictly matches: `Mock_Data` ➔ `Clean_Strings` ➔ `Format_Dates` ➔ `Categorize_Order` ➔ `Map_Output`.
 - [x] String normalization implemented for Order ID (`ORD-98231-XYZ`) and Customer Name (`Jane Doe`).
 - [x] Safe email lowercasing and domain extraction (`acmecorp.com`) implemented.
@@ -261,7 +261,7 @@ flowchart LR
 - [x] Commercial customer tiering (`Tier 1`, `Tier 2`, `Tier 3`) assigned dynamically.
 - [x] Cross-node data referencing verified (`$node['...'].json`).
 - [x] Multi-tier nested `invoice` object constructed dynamically with zero hardcoded values.
-- [x] Workflow JSON exported (`Customer_Order_Normalizer_Workflow.json`).
+- [x] Workflow JSON exported (`Topic_2_Customer_Order_Normalizer_Workflow.json`).
 - [x] Publication-ready PDF documentation generated (`README.pdf`).
 - [x] Zero sensitive credentials or tokens exposed.
 - [x] Deliverables committed and pushed to public GitHub repository (`3OOM/n8n-hands-on-level-2`).
@@ -274,12 +274,12 @@ flowchart LR
 
 ```text
 ================================================================================
-TAYANA ACADEMY LMS SUBMISSION | LEVEL 2 — LESSON 5: CUSTOMER ORDER NORMALIZER
+TAYANA ACADEMY LMS SUBMISSION | LEVEL 2 — TOPIC 2: CUSTOMER ORDER NORMALIZER
 ================================================================================
 Student Name: Abhishek Nikam
 Student Email: abhishek.n@tayanasolutions.com
-Workflow Name: Customer Order Normalizer Workflow
-GitHub Repository: https://github.com/3OOM/n8n-hands-on-level-2/tree/main/lesson-05-customer-order-normalizer
+Workflow Name: Topic 2 - Customer Order Normalizer Workflow
+GitHub Repository: https://github.com/3OOM/n8n-hands-on-level-2/tree/main/topic-02-customer-order-normalizer
 
 1. WORKFLOW IMPLEMENTATION SUMMARY:
 - Constructed an automated end-to-end data transformation pipeline:
