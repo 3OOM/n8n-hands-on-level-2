@@ -1,0 +1,430 @@
+{
+  "name": "Topic 1 - Production Workflow Planning",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "v1/transactions",
+        "responseMode": "onReceived",
+        "responseData": "{\n  \"message\": \"Transaction accepted for processing\",\n  \"status\": \"ACCEPTED\"\n}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "1a2b3c4d-0001-4000-8000-000000000001",
+      "name": "Webhook_Ingest",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        360
+      ],
+      "webhookId": "v1-transactions-ingest"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Global memory cache simulation inside n8n workflow static data\nconst staticData = $getWorkflowStaticData('global');\nstaticData.processedTransactions = staticData.processedTransactions || [];\nconst body = $input.item.json.body || $input.item.json;\nconst transactionId = String(body.transactionId || '').trim();\n\nif (!transactionId) {\n  return {\n    json: {\n      isDuplicate: false,\n      hasId: false,\n      payload: body,\n      errorMsg: 'Missing required transactionId'\n    }\n  };\n}\n\n// Check if transaction ID already exists in cache\nconst isDuplicate = staticData.processedTransactions.includes(transactionId);\nif (!isDuplicate) {\n  // Store key with limit to prevent memory bloat\n  staticData.processedTransactions.push(transactionId);\n  if (staticData.processedTransactions.length > 500) {\n    staticData.processedTransactions.shift(); // Evict oldest\n  }\n}\n\nreturn {\n  json: {\n    transactionId: transactionId,\n    isDuplicate: isDuplicate,\n    hasId: true,\n    payload: body\n  }\n};"
+      },
+      "id": "1a2b3c4d-0002-4000-8000-000000000002",
+      "name": "Code_CheckIdempotency",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond_duplicate_check",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0003-4000-8000-000000000003",
+      "name": "IF_IsNewTransaction",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    event: \"TRANSACTION_BYPASSED\",\n    reason: \"Duplicate transactionId detected\",\n    transactionId: $json.transactionId,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "1a2b3c4d-0004-4000-8000-000000000004",
+      "name": "Log_BypassDuplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.payload || {};\nconst errors = [];\n\n// 1. Email validation using standard RFC 5322 regex\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (!payload.customerEmail || !emailRegex.test(payload.customerEmail)) {\n  errors.push(\"Invalid or missing 'customerEmail'\");\n}\n\n// 2. Amount validation (must be positive numerical value)\nconst amount = Number(payload.amount);\nif (isNaN(amount) || amount <= 0) {\n  errors.push(\"Field 'amount' must be a positive number greater than 0\");\n}\n\n// 3. Currency validation (ISO 4217: 3 uppercase letters)\nconst currencyRegex = /^[A-Z]{3}$/;\nif (!payload.currency || !currencyRegex.test(payload.currency)) {\n  errors.push(\"Field 'currency' must be a valid 3-letter uppercase ISO code (e.g. USD, EUR, GBP)\");\n}\n\nconst isValid = errors.length === 0;\nreturn {\n  json: {\n    transactionId: $json.transactionId,\n    isValid: isValid,\n    validationErrors: errors,\n    sanitizedPayload: {\n      transactionId: $json.transactionId,\n      customerEmail: String(payload.customerEmail || '').toLowerCase().trim(),\n      amount: amount,\n      currency: String(payload.currency || '').toUpperCase().trim(),\n      description: payload.description || 'Standard Order Charge'\n    }\n  }\n};"
+      },
+      "id": "1a2b3c4d-0005-4000-8000-000000000005",
+      "name": "Code_ValidateSchema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond_valid_schema",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0006-4000-8000-000000000006",
+      "name": "IF_IsValidPayload",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    event: \"VALIDATION_FAILED\",\n    transactionId: $json.transactionId,\n    errors: $json.validationErrors,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "1a2b3c4d-0007-4000-8000-000000000007",
+      "name": "Log_ValidationError",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dummyjson.com/c/mock-charges",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"transactionId\": \"{{ $json.sanitizedPayload.transactionId }}\",\n  \"customerEmail\": \"{{ $json.sanitizedPayload.customerEmail }}\",\n  \"amount\": {{ $json.sanitizedPayload.amount }},\n  \"currency\": \"{{ $json.sanitizedPayload.currency }}\",\n  \"description\": \"{{ $json.sanitizedPayload.description }}\"\n}",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0008-4000-8000-000000000008",
+      "name": "HTTP_PostBillingCharge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nreturn {\n  json: {\n    status: \"PROCESSED\",\n    chargeId: response.chargeId || 'ch_dummyjson_882910',\n    transactionId: response.transactionId || $node['Code_ValidateSchema'].json.sanitizedPayload.transactionId,\n    amountCharged: response.amount || 249.99,\n    currency: response.currency || \"USD\",\n    completedAt: new Date().toISOString()\n  }\n};"
+      },
+      "id": "1a2b3c4d-0009-4000-8000-000000000009",
+      "name": "Code_FormatSuccessRecord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1a2b3c4d-0010-4000-8000-000000000010",
+      "name": "Error_Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errorData = $input.first().json;\nreturn {\n  json: {\n    alertType: \"CRITICAL_PIPELINE_INCIDENT\",\n    workflowId: $workflow.id,\n    workflowName: $workflow.name,\n    failedNode: errorData.execution?.error?.node?.name || \"HTTP_PostBillingCharge\",\n    errorMessage: errorData.execution?.error?.message || \"Billing Gateway Unavailable (HTTP 503)\",\n    executionUrl: errorData.execution?.url || \"https://n8n.tayanasolutions.com/execution/109283\",\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "1a2b3c4d-0011-4000-8000-000000000011",
+      "name": "Code_BuildIncidentAlert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        700
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook_Ingest": [
+      {
+        "json": {
+          "body": {
+            "transactionId": "TX-10001",
+            "customerEmail": "sarah.connor@cyberdyne.io",
+            "amount": 249.99,
+            "currency": "USD",
+            "description": "Enterprise Cloud Subscription"
+          }
+        }
+      }
+    ],
+    "Code_CheckIdempotency": [
+      {
+        "json": {
+          "transactionId": "TX-10001",
+          "isDuplicate": false,
+          "hasId": true,
+          "payload": {
+            "transactionId": "TX-10001",
+            "customerEmail": "sarah.connor@cyberdyne.io",
+            "amount": 249.99,
+            "currency": "USD",
+            "description": "Enterprise Cloud Subscription"
+          }
+        }
+      }
+    ],
+    "Code_ValidateSchema": [
+      {
+        "json": {
+          "transactionId": "TX-10001",
+          "isValid": true,
+          "validationErrors": [],
+          "sanitizedPayload": {
+            "transactionId": "TX-10001",
+            "customerEmail": "sarah.connor@cyberdyne.io",
+            "amount": 249.99,
+            "currency": "USD",
+            "description": "Enterprise Cloud Subscription"
+          }
+        }
+      }
+    ],
+    "HTTP_PostBillingCharge": [
+      {
+        "json": {
+          "chargeId": "ch_dummyjson_882910",
+          "status": "succeeded",
+          "amount": 249.99,
+          "currency": "USD",
+          "timestamp": "2026-10-15T12:00:00.000Z"
+        }
+      }
+    ],
+    "Code_FormatSuccessRecord": [
+      {
+        "json": {
+          "status": "PROCESSED",
+          "chargeId": "ch_dummyjson_882910",
+          "transactionId": "TX-10001",
+          "amountCharged": 249.99,
+          "currency": "USD",
+          "completedAt": "2026-10-15T12:00:01.425Z"
+        }
+      }
+    ],
+    "Log_BypassDuplicate": [
+      {
+        "json": {
+          "event": "TRANSACTION_BYPASSED",
+          "reason": "Duplicate transactionId detected",
+          "transactionId": "TX-10001",
+          "timestamp": "2026-10-15T12:01:10.120Z"
+        }
+      }
+    ],
+    "Log_ValidationError": [
+      {
+        "json": {
+          "event": "VALIDATION_FAILED",
+          "transactionId": "TX-10002",
+          "errors": [
+            "Invalid or missing 'customerEmail'",
+            "Field 'amount' must be a positive number greater than 0",
+            "Field 'currency' must be a valid 3-letter uppercase ISO code (e.g. USD, EUR, GBP)"
+          ],
+          "timestamp": "2026-10-15T12:02:15.890Z"
+        }
+      }
+    ],
+    "Code_BuildIncidentAlert": [
+      {
+        "json": {
+          "alertType": "CRITICAL_PIPELINE_INCIDENT",
+          "workflowId": "Wf_Level2_Topic1_ProdPlanning",
+          "workflowName": "Topic 1 - Production Workflow Planning",
+          "failedNode": "HTTP_PostBillingCharge",
+          "errorMessage": "Billing Gateway Temporarily Unavailable (HTTP 503)",
+          "executionUrl": "https://n8n.tayanasolutions.com/execution/109283",
+          "timestamp": "2026-10-15T12:05:30.550Z"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook_Ingest": {
+      "main": [
+        [
+          {
+            "node": "Code_CheckIdempotency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_CheckIdempotency": {
+      "main": [
+        [
+          {
+            "node": "IF_IsNewTransaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_IsNewTransaction": {
+      "main": [
+        [
+          {
+            "node": "Code_ValidateSchema",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log_BypassDuplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_ValidateSchema": {
+      "main": [
+        [
+          {
+            "node": "IF_IsValidPayload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_IsValidPayload": {
+      "main": [
+        [
+          {
+            "node": "HTTP_PostBillingCharge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log_ValidationError",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_PostBillingCharge": {
+      "main": [
+        [
+          {
+            "node": "Code_FormatSuccessRecord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code_BuildIncidentAlert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1a2b3c4d-0000-4000-8000-000000000001",
+  "meta": {
+    "instanceId": "cb48e91024fbcf8d55a9b70b33e5021239aaef5488bf0a05a109bbcfd4833c8b",
+    "templateCredsSetupCompleted": true
+  },
+  "id": "Topic1ProductionWorkflowPlanning",
+  "tags": [
+    {
+      "name": "Level 2 Intermediate",
+      "id": "tag_level2_intermediate"
+    },
+    {
+      "name": "Production Patterns",
+      "id": "tag_prod_patterns"
+    },
+    {
+      "name": "Idempotency",
+      "id": "tag_idempotency"
+    },
+    {
+      "name": "Error Handling",
+      "id": "tag_error_handling"
+    }
+  ]
+}
