@@ -1,0 +1,759 @@
+{
+  "name": "Topic 4 - Support Ticket Priority Routing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-ticket",
+        "responseMode": "onReceived",
+        "responseData": "customBody",
+        "customBody": "{\n  \"status\": \"RECEIVED\",\n  \"message\": \"Ticket queued for routing\"\n}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0001-webhookintake",
+      "name": "Webhook_TicketIntake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        340
+      ],
+      "webhookId": "9f7b1e2a-4c8d-4a3e-b6d8-supportticket"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst name = String(body.customerName || '').trim();\nconst email = String(body.customerEmail || '').trim().toLowerCase();\nconst subject = String(body.subject || '').trim();\nconst description = String(body.description || '').trim();\nconst rawPriority = String(body.priority || '').trim();\n\n// Check presence of mandatory fields\nconst missing = [];\nif (!name) missing.push(\"customerName\");\nif (!email) missing.push(\"customerEmail\");\nif (!subject) missing.push(\"subject\");\nif (!rawPriority) missing.push(\"priority\");\n\nconst isValid = missing.length === 0;\n\n// Normalize priority to Title Case (e.g. 'urgent' -> 'Urgent')\nlet normalizedPriority = \"Fallback\";\nif (rawPriority) {\n  normalizedPriority = rawPriority.charAt(0).toUpperCase() + rawPriority.slice(1).toLowerCase();\n}\n\nreturn {\n  json: {\n    isValid: isValid,\n    missingFields: missing,\n    ticket: {\n      customerName: name,\n      customerEmail: email,\n      subject: subject,\n      description: description,\n      priority: normalizedPriority,\n      rawPriority: rawPriority,\n      submittedAt: new Date().toISOString()\n    }\n  }\n};"
+      },
+      "id": "a1b2c3d4-e5f6-4789-0002-validatesanitize",
+      "name": "Code_ValidateAndSanitize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-4789-0003-ifrequiredfields",
+      "name": "IF_HasRequiredFields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        740,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    event: \"TICKET_DROPPED_INCOMPLETE\",\n    missingFields: $json.missingFields,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "a1b2c3d4-e5f6-4789-0004-logrejected",
+      "name": "Log_RejectedTicket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-low",
+                    "leftValue": "={{ $json.ticket.priority }}",
+                    "rightValue": "Low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-medium",
+                    "leftValue": "={{ $json.ticket.priority }}",
+                    "rightValue": "Medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-high",
+                    "leftValue": "={{ $json.ticket.priority }}",
+                    "rightValue": "High",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-urgent",
+                    "leftValue": "={{ $json.ticket.priority }}",
+                    "rightValue": "Urgent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 4
+        }
+      },
+      "id": "a1b2c3d4-e5f6-4789-0005-switchpriority",
+      "name": "Switch_RouteByPriority",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "recipientEmail",
+              "type": "string",
+              "value": "support-general@example.com"
+            },
+            {
+              "name": "queue",
+              "type": "string",
+              "value": "General Tier 0 Queue"
+            },
+            {
+              "name": "subject",
+              "type": "string",
+              "value": "=New Ticket (Low): {{ $json.ticket.subject }}"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "value": "=From: {{ $json.ticket.customerName }} ({{ $json.ticket.customerEmail }})\nIssue: {{ $json.ticket.description }}"
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "value": "Low"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0006-setlow",
+      "name": "Set_Email_Low",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "recipientEmail",
+              "type": "string",
+              "value": "support-tier1@example.com"
+            },
+            {
+              "name": "queue",
+              "type": "string",
+              "value": "Tier 1 Support Queue"
+            },
+            {
+              "name": "subject",
+              "type": "string",
+              "value": "=New Ticket (Medium): {{ $json.ticket.subject }}"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "value": "=From: {{ $json.ticket.customerName }} ({{ $json.ticket.customerEmail }})\nIssue: {{ $json.ticket.description }}"
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "value": "Medium"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0007-setmedium",
+      "name": "Set_Email_Medium",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "recipientEmail",
+              "type": "string",
+              "value": "support-tier2@example.com"
+            },
+            {
+              "name": "queue",
+              "type": "string",
+              "value": "Tier 2 Technical Escalations"
+            },
+            {
+              "name": "subject",
+              "type": "string",
+              "value": "=High Priority Ticket: {{ $json.ticket.subject }}"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "value": "=From: {{ $json.ticket.customerName }} ({{ $json.ticket.customerEmail }})\nIssue: {{ $json.ticket.description }}"
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "value": "High"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0008-sethigh",
+      "name": "Set_Email_High",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "recipientEmail",
+              "type": "string",
+              "value": "oncall-escalation@example.com"
+            },
+            {
+              "name": "queue",
+              "type": "string",
+              "value": "On-Call Urgent Page Desk"
+            },
+            {
+              "name": "subject",
+              "type": "string",
+              "value": "=URGENT P1 ESCALATION: {{ $json.ticket.subject }}"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "value": "=[IMMEDIATE ATTENTION REQUIRED] From: {{ $json.ticket.customerName }} ({{ $json.ticket.customerEmail }}) Issue: {{ $json.ticket.description }}"
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "value": "Urgent"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0009-seturgent",
+      "name": "Set_Email_Urgent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "recipientEmail",
+              "type": "string",
+              "value": "support-triage@example.com"
+            },
+            {
+              "name": "queue",
+              "type": "string",
+              "value": "Manual Triage Desk"
+            },
+            {
+              "name": "subject",
+              "type": "string",
+              "value": "=Unrecognized Priority Review: {{ $json.ticket.subject }}"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "value": "=Unclassified priority '{{ $json.ticket.rawPriority }}' detected. From: {{ $json.ticket.customerName }} ({{ $json.ticket.customerEmail }}) Issue: {{ $json.ticket.description }}"
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "value": "Fallback"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0010-setfallback",
+      "name": "Set_Email_Fallback",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dummyjson.com/c/4491-disp-mock",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"recipientEmail\": \"{{ $json.recipientEmail }}\",\n  \"queue\": \"{{ $json.queue }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"body\": \"{{ $json.body }}\",\n  \"priority\": \"{{ $json.priority }}\"\n}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4789-0011-httpdispatch",
+      "name": "HTTP_MockDispatchNotification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.item.json;\nreturn {\n  json: {\n    event: \"TICKET_ROUTED_SUCCESSFULLY\",\n    dispatchId: resp.dispatchId || \"disp_auto_\" + Math.random().toString(36).substring(2, 9),\n    assignedQueue: resp.routedQueue || resp.queue || \"Support Queue\",\n    targetRecipient: resp.recipient || resp.recipientEmail || \"support@example.com\",\n    deliveryStatus: resp.status || \"DELIVERED\",\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "a1b2c3d4-e5f6-4789-0012-routingaudit",
+      "name": "Code_BuildRoutingAudit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📥 1. Ingestion & Validation\n- `Webhook_TicketIntake`: Listens on POST `/support-ticket`\n- `Code_ValidateAndSanitize`: Validates 4 required fields and normalizes priority casing (e.g. `'urgent'` ➔ `'Urgent'`)\n- `IF_HasRequiredFields`: Gates execution and safely drops incomplete tickets",
+        "height": 240,
+        "width": 380,
+        "color": 6
+      },
+      "id": "b1b2c3d4-e5f6-4789-0013-sticky1",
+      "name": "Sticky_Ingestion_Validation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔀 2. 4-Priority Routing & Fallback\n- `Switch_RouteByPriority`: Compares `ticket.priority` against:\n  - Low (Output 0)\n  - Medium (Output 1)\n  - High (Output 2)\n  - Urgent (Output 3)\n  - Fallback (Output 4 / Unrecognized)\nTailored email & queue payloads set for each desk.",
+        "height": 240,
+        "width": 420,
+        "color": 4
+      },
+      "id": "b1b2c3d4-e5f6-4789-0014-sticky2",
+      "name": "Sticky_Switch_Branches",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🚀 3. Convergence & Audit\n- `HTTP_MockDispatchNotification`: All 5 branches converge to dispatch to simulated support gateway\n- `Code_BuildRoutingAudit`: Formats standardized audit record with dispatchId, assignedQueue, and timestamp",
+        "height": 240,
+        "width": 380,
+        "color": 5
+      },
+      "id": "b1b2c3d4-e5f6-4789-0015-sticky3",
+      "name": "Sticky_Convergence_Audit",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        40
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook_TicketIntake": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": {
+            "customerName": "Alice Smith",
+            "customerEmail": "alice@corporate.org",
+            "subject": "Production Database Offline",
+            "description": "Entire cluster reporting 502 Bad Gateway",
+            "priority": "Urgent"
+          }
+        }
+      }
+    ],
+    "Code_ValidateAndSanitize": [
+      {
+        "json": {
+          "isValid": true,
+          "missingFields": [],
+          "ticket": {
+            "customerName": "Alice Smith",
+            "customerEmail": "alice@corporate.org",
+            "subject": "Production Database Offline",
+            "description": "Entire cluster reporting 502 Bad Gateway",
+            "priority": "Urgent",
+            "rawPriority": "Urgent",
+            "submittedAt": "2026-10-16T10:00:00.000Z"
+          }
+        }
+      }
+    ],
+    "IF_HasRequiredFields": [
+      {
+        "json": {
+          "isValid": true,
+          "missingFields": [],
+          "ticket": {
+            "customerName": "Alice Smith",
+            "customerEmail": "alice@corporate.org",
+            "subject": "Production Database Offline",
+            "description": "Entire cluster reporting 502 Bad Gateway",
+            "priority": "Urgent",
+            "rawPriority": "Urgent",
+            "submittedAt": "2026-10-16T10:00:00.000Z"
+          }
+        }
+      }
+    ],
+    "Switch_RouteByPriority": [
+      {
+        "json": {
+          "isValid": true,
+          "missingFields": [],
+          "ticket": {
+            "customerName": "Alice Smith",
+            "customerEmail": "alice@corporate.org",
+            "subject": "Production Database Offline",
+            "description": "Entire cluster reporting 502 Bad Gateway",
+            "priority": "Urgent",
+            "rawPriority": "Urgent",
+            "submittedAt": "2026-10-16T10:00:00.000Z"
+          }
+        }
+      }
+    ],
+    "Set_Email_Urgent": [
+      {
+        "json": {
+          "recipientEmail": "oncall-escalation@example.com",
+          "queue": "On-Call Urgent Page Desk",
+          "subject": "URGENT P1 ESCALATION: Production Database Offline",
+          "body": "[IMMEDIATE ATTENTION REQUIRED] From: Alice Smith (alice@corporate.org) Issue: Entire cluster reporting 502 Bad Gateway",
+          "priority": "Urgent"
+        }
+      }
+    ],
+    "HTTP_MockDispatchNotification": [
+      {
+        "json": {
+          "dispatchId": "disp_dummy_44910",
+          "status": "DELIVERED",
+          "channel": "Simulated Support Gateway",
+          "deliveredAt": "2026-10-16T10:00:01.000Z",
+          "routedQueue": "On-Call Urgent Page Desk",
+          "recipient": "oncall-escalation@example.com"
+        }
+      }
+    ],
+    "Code_BuildRoutingAudit": [
+      {
+        "json": {
+          "event": "TICKET_ROUTED_SUCCESSFULLY",
+          "dispatchId": "disp_dummy_44910",
+          "assignedQueue": "On-Call Urgent Page Desk",
+          "targetRecipient": "oncall-escalation@example.com",
+          "deliveryStatus": "DELIVERED",
+          "timestamp": "2026-10-16T10:00:02.000Z"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook_TicketIntake": {
+      "main": [
+        [
+          {
+            "node": "Code_ValidateAndSanitize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_ValidateAndSanitize": {
+      "main": [
+        [
+          {
+            "node": "IF_HasRequiredFields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_HasRequiredFields": {
+      "main": [
+        [
+          {
+            "node": "Switch_RouteByPriority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log_RejectedTicket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_RouteByPriority": {
+      "main": [
+        [
+          {
+            "node": "Set_Email_Low",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_Email_Medium",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_Email_High",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_Email_Urgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_Email_Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Email_Low": {
+      "main": [
+        [
+          {
+            "node": "HTTP_MockDispatchNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Email_Medium": {
+      "main": [
+        [
+          {
+            "node": "HTTP_MockDispatchNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Email_High": {
+      "main": [
+        [
+          {
+            "node": "HTTP_MockDispatchNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Email_Urgent": {
+      "main": [
+        [
+          {
+            "node": "HTTP_MockDispatchNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Email_Fallback": {
+      "main": [
+        [
+          {
+            "node": "HTTP_MockDispatchNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_MockDispatchNotification": {
+      "main": [
+        [
+          {
+            "node": "Code_BuildRoutingAudit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b8a9c2e4-1f3d-4c7b-9901-t4priorityrouting",
+  "meta": {
+    "instanceId": "tayana-enterprise-n8n-level-2-topic-4"
+  },
+  "id": "Topic4SupportTicketPriorityRouting",
+  "tags": [
+    {
+      "name": "Level-2-Intermediate",
+      "id": "lvl2"
+    },
+    {
+      "name": "Conditional-Routing",
+      "id": "cond-routing"
+    },
+    {
+      "name": "Switch-Node",
+      "id": "switch-node"
+    }
+  ]
+}
