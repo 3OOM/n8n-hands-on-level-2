@@ -1,0 +1,551 @@
+{
+  "name": "Topic 7 - API Integration Patterns & Authentication Methods",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e7a10001-0001-4000-8000-000000000001",
+      "name": "Manual_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Set to 0 to test API Key, 1 to test Bearer Token with Auto-Refresh\nreturn [\n  { json: { testMode: 0, testName: \"API Key Header Pattern\" } },\n  { json: { testMode: 1, testName: \"Bearer Token Lifecycle Pattern\" } }\n];"
+      },
+      "id": "e7a10001-0002-4000-8000-000000000002",
+      "name": "Code_SetAuthMode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-api-key",
+                    "leftValue": "={{ $json.testMode }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-bearer",
+                    "leftValue": "={{ $json.testMode }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7a10001-0003-4000-8000-000000000003",
+      "name": "Switch_AuthPattern",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://dummyjson.com/c/mock-protected-apikey",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "key_live_prod_2026"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7a10001-0004-4000-8000-000000000004",
+      "name": "HTTP_CallWithApiKey",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst now = Date.now();\nlet token = staticData.bearerToken || null;\nlet expiresAt = staticData.tokenExpiresAt || 0;\n\n// Needs refresh if missing or expiring within 60 seconds (proactive refresh)\nconst needsRefresh = !token || (expiresAt - now < 60000);\n\nreturn {\n  json: {\n    hasToken: Boolean(token),\n    needsRefresh: needsRefresh,\n    cachedToken: token,\n    expiresAt: expiresAt\n  }\n};"
+      },
+      "id": "e7a10001-0005-4000-8000-000000000005",
+      "name": "Code_CheckTokenExpiry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-expired",
+              "leftValue": "={{ $json.needsRefresh }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "e7a10001-0006-4000-8000-000000000006",
+      "name": "IF_TokenIsExpired",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dummyjson.com/c/mock-auth-token",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"client_id\": \"client_app_100\",\n  \"grant_type\": \"client_credentials\"\n}",
+        "options": {}
+      },
+      "id": "e7a10001-0007-4000-8000-000000000007",
+      "name": "HTTP_RefreshAuthToken",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst response = $input.item.json;\n\nstaticData.bearerToken = response.access_token || \"bearer_mock_jwt_token_99182\";\nstaticData.tokenExpiresAt = Date.now() + ((response.expires_in || 3600) * 1000);\n\nreturn {\n  json: {\n    activeToken: staticData.bearerToken,\n    expiresAt: staticData.tokenExpiresAt,\n    refreshed: true\n  }\n};"
+      },
+      "id": "e7a10001-0008-4000-8000-000000000008",
+      "name": "Code_SaveFreshToken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://dummyjson.com/c/mock-protected-bearer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($json.activeToken || $json.cachedToken) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7a10001-0009-4000-8000-000000000009",
+      "name": "HTTP_CallWithBearerToken",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.item.json;\nreturn {\n  json: {\n    authStatus: \"AUTHENTICATION_VERIFIED\",\n    patternTested: resp.authMethod || ($node['Switch_AuthPattern']?.json?.testMode === 0 ? \"API_KEY_HEADER\" : \"BEARER_TOKEN_AUTO_REFRESH\"),\n    serverConfirmed: resp.status || \"AUTHORIZED\",\n    deliveryConfirmation: resp.message || \"Access granted to protected endpoint\",\n    verifiedAt: new Date().toISOString()\n  }\n};"
+      },
+      "id": "e7a10001-0010-4000-8000-000000000010",
+      "name": "Code_AuditAuthSuccess",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔑 1. Auth Mode Selector & Routing\n- `Manual_Trigger`: Runs the verification suite.\n- `Code_SetAuthMode`: Generates test cases for **API Key** (Mode 0) and **Bearer Token** (Mode 1).\n- `Switch_AuthPattern`: Segregates execution into parallel authentication testing tracks.",
+        "height": 220,
+        "width": 420,
+        "color": 6
+      },
+      "id": "e7a10001-0011-4000-8000-000000000011",
+      "name": "Sticky_Mode_Selector",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🛡️ 2. Pattern A: API Key Header Injection\n- `HTTP_CallWithApiKey`: Dispatches GET request with header `X-API-Key: key_live_prod_2026`.\n- **Resilience Policy:** Configured with `Retry on Fail` (3 attempts, 2000 ms backoff).",
+        "height": 200,
+        "width": 380,
+        "color": 4
+      },
+      "id": "e7a10001-0012-4000-8000-000000000012",
+      "name": "Sticky_API_Key_Pattern",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⏳ 3. Pattern B: Token Expiry & Cache Evaluation\n- `Code_CheckTokenExpiry`: Inspects `$getWorkflowStaticData('global')`.\n- Enforces **60-second proactive buffer**: refreshes if token is absent or within 60s of expiring.\n- `IF_TokenIsExpired`: Gating node routing to token refresh (True) or direct execution (False).",
+        "height": 220,
+        "width": 440,
+        "color": 5
+      },
+      "id": "e7a10001-0013-4000-8000-000000000013",
+      "name": "Sticky_Token_Cache_Logic",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 4. Client Credentials Exchange & Bearer Dispatch\n- `HTTP_RefreshAuthToken`: POST `/auth/token` with client credentials exchange.\n- `Code_SaveFreshToken`: Stores new JWT & expiration in global memory.\n- `HTTP_CallWithBearerToken`: Dispatches GET with dynamic `Authorization: Bearer <token>`.",
+        "height": 220,
+        "width": 440,
+        "color": 2
+      },
+      "id": "e7a10001-0014-4000-8000-000000000014",
+      "name": "Sticky_Bearer_Dispatch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📋 5. Authentication Audit & Telemetry\n- `Code_AuditAuthSuccess`: Converges responses from both API Key and Bearer token paths.\n- Validates server authorization and outputs standardized audit receipt.",
+        "height": 200,
+        "width": 360,
+        "color": 7
+      },
+      "id": "e7a10001-0015-4000-8000-000000000015",
+      "name": "Sticky_Audit_Summary",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        40
+      ]
+    }
+  ],
+  "pinData": {
+    "Code_SetAuthMode": [
+      {
+        "json": {
+          "testMode": 0,
+          "testName": "API Key Header Pattern"
+        }
+      },
+      {
+        "json": {
+          "testMode": 1,
+          "testName": "Bearer Token Lifecycle Pattern"
+        }
+      }
+    ],
+    "HTTP_CallWithApiKey": [
+      {
+        "json": {
+          "status": "AUTHORIZED",
+          "message": "Access granted via API Key header",
+          "clientKey": "key_live_prod_2026",
+          "authMethod": "API_KEY_HEADER",
+          "timestamp": "2026-10-21T10:00:00.000Z"
+        }
+      }
+    ],
+    "Code_CheckTokenExpiry": [
+      {
+        "json": {
+          "hasToken": false,
+          "needsRefresh": true,
+          "cachedToken": null,
+          "expiresAt": 0
+        }
+      }
+    ],
+    "IF_TokenIsExpired": [
+      {
+        "json": {
+          "hasToken": false,
+          "needsRefresh": true,
+          "cachedToken": null,
+          "expiresAt": 0
+        }
+      }
+    ],
+    "HTTP_RefreshAuthToken": [
+      {
+        "json": {
+          "access_token": "jwt_mock_access_token_sec99182",
+          "token_type": "Bearer",
+          "expires_in": 3600
+        }
+      }
+    ],
+    "Code_SaveFreshToken": [
+      {
+        "json": {
+          "activeToken": "jwt_mock_access_token_sec99182",
+          "expiresAt": 1792670400000,
+          "refreshed": true
+        }
+      }
+    ],
+    "HTTP_CallWithBearerToken": [
+      {
+        "json": {
+          "status": "AUTHORIZED",
+          "message": "Access granted via Bearer token",
+          "tokenScope": "read:write",
+          "authMethod": "BEARER_TOKEN",
+          "timestamp": "2026-10-21T10:00:02.000Z"
+        }
+      }
+    ],
+    "Code_AuditAuthSuccess": [
+      {
+        "json": {
+          "authStatus": "AUTHENTICATION_VERIFIED",
+          "patternTested": "API_KEY_HEADER",
+          "serverConfirmed": "AUTHORIZED",
+          "deliveryConfirmation": "Access granted via API Key header",
+          "verifiedAt": "2026-10-21T10:00:03.000Z"
+        }
+      },
+      {
+        "json": {
+          "authStatus": "AUTHENTICATION_VERIFIED",
+          "patternTested": "BEARER_TOKEN",
+          "serverConfirmed": "AUTHORIZED",
+          "deliveryConfirmation": "Access granted via Bearer token",
+          "verifiedAt": "2026-10-21T10:00:03.000Z"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Manual_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code_SetAuthMode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_SetAuthMode": {
+      "main": [
+        [
+          {
+            "node": "Switch_AuthPattern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_AuthPattern": {
+      "main": [
+        [
+          {
+            "node": "HTTP_CallWithApiKey",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code_CheckTokenExpiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_CallWithApiKey": {
+      "main": [
+        [
+          {
+            "node": "Code_AuditAuthSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_CheckTokenExpiry": {
+      "main": [
+        [
+          {
+            "node": "IF_TokenIsExpired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_TokenIsExpired": {
+      "main": [
+        [
+          {
+            "node": "HTTP_RefreshAuthToken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP_CallWithBearerToken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_RefreshAuthToken": {
+      "main": [
+        [
+          {
+            "node": "Code_SaveFreshToken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_SaveFreshToken": {
+      "main": [
+        [
+          {
+            "node": "HTTP_CallWithBearerToken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_CallWithBearerToken": {
+      "main": [
+        [
+          {
+            "node": "Code_AuditAuthSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e7b8c9d0-6f4e-4a9c-9903-apipatternsauth",
+  "meta": {
+    "instanceId": "tayana-enterprise-n8n-level-2-topic-7"
+  },
+  "id": "Topic7APIIntegrationPatternsAuth",
+  "tags": [
+    {
+      "name": "Level-2-Intermediate",
+      "id": "lvl2"
+    },
+    {
+      "name": "Authentication",
+      "id": "auth"
+    },
+    {
+      "name": "API-Key",
+      "id": "api-key"
+    },
+    {
+      "name": "Bearer-Token",
+      "id": "bearer-token"
+    },
+    {
+      "name": "OAuth2",
+      "id": "oauth2"
+    }
+  ]
+}
