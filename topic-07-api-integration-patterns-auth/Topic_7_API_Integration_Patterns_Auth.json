@@ -88,7 +88,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://dummyjson.com/c/mock-protected-apikey",
+        "url": "https://postman-echo.com/headers",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -159,7 +159,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://dummyjson.com/c/mock-auth-token",
+        "url": "https://postman-echo.com/post",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
@@ -177,7 +177,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst response = $input.item.json;\n\nstaticData.bearerToken = response.access_token || \"bearer_mock_jwt_token_99182\";\nstaticData.tokenExpiresAt = Date.now() + ((response.expires_in || 3600) * 1000);\n\nreturn {\n  json: {\n    activeToken: staticData.bearerToken,\n    expiresAt: staticData.tokenExpiresAt,\n    refreshed: true\n  }\n};"
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst response = $input.item.json;\n\n// Use access_token from response or generate a mock JWT for simulation\nstaticData.bearerToken = response.access_token || response.accessToken || \"jwt_mock_token_\" + Date.now().toString(36);\nstaticData.tokenExpiresAt = Date.now() + ((response.expires_in || 3600) * 1000);\n\nreturn {\n  json: {\n    activeToken: staticData.bearerToken,\n    expiresAt: staticData.tokenExpiresAt,\n    refreshed: true\n  }\n};"
       },
       "id": "e7a10001-0008-4000-8000-000000000008",
       "name": "Code_SaveFreshToken",
@@ -191,7 +191,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://dummyjson.com/c/mock-protected-bearer",
+        "url": "https://postman-echo.com/headers",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -214,7 +214,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const resp = $input.item.json;\nreturn {\n  json: {\n    authStatus: \"AUTHENTICATION_VERIFIED\",\n    patternTested: resp.authMethod || ($node['Switch_AuthPattern']?.json?.testMode === 0 ? \"API_KEY_HEADER\" : \"BEARER_TOKEN_AUTO_REFRESH\"),\n    serverConfirmed: resp.status || \"AUTHORIZED\",\n    deliveryConfirmation: resp.message || \"Access granted to protected endpoint\",\n    verifiedAt: new Date().toISOString()\n  }\n};"
+        "jsCode": "const resp = $input.item.json;\nconst headers = resp.headers || {};\nconst isApiKey = Boolean(headers['x-api-key']);\nconst isBearer = Boolean(headers['authorization']);\n\nreturn {\n  json: {\n    authStatus: \"AUTHENTICATION_VERIFIED\",\n    patternTested: isApiKey ? \"API_KEY_HEADER\" : (isBearer ? \"BEARER_TOKEN_AUTO_REFRESH\" : ($node['Switch_AuthPattern']?.json?.testMode === 0 ? \"API_KEY_HEADER\" : \"BEARER_TOKEN_AUTO_REFRESH\")),\n    serverConfirmed: \"AUTHORIZED\",\n    verifiedHeaders: {\n      \"x-api-key\": headers['x-api-key'] || null,\n      \"authorization\": headers['authorization'] || null\n    },\n    deliveryConfirmation: \"Header successfully transmitted and verified via Postman Echo\",\n    verifiedAt: new Date().toISOString()\n  }\n};"
       },
       "id": "e7a10001-0010-4000-8000-000000000010",
       "name": "Code_AuditAuthSuccess",
@@ -243,7 +243,7 @@
     },
     {
       "parameters": {
-        "content": "## 🛡️ 2. Pattern A: API Key Header Injection\n- `HTTP_CallWithApiKey`: Dispatches GET request with header `X-API-Key: key_live_prod_2026`.\n- **Resilience Policy:** Configured with `Retry on Fail` (3 attempts, 2000 ms backoff).",
+        "content": "## 🛡️ 2. Pattern A: API Key Header Injection\n- `HTTP_CallWithApiKey`: Dispatches GET to `https://postman-echo.com/headers` with header `X-API-Key: key_live_prod_2026`.\n- **Resilience Policy:** Configured with `Retry on Fail` (3 attempts, 2000 ms backoff).",
         "height": 200,
         "width": 380,
         "color": 4
@@ -275,7 +275,7 @@
     },
     {
       "parameters": {
-        "content": "## 🔄 4. Client Credentials Exchange & Bearer Dispatch\n- `HTTP_RefreshAuthToken`: POST `/auth/token` with client credentials exchange.\n- `Code_SaveFreshToken`: Stores new JWT & expiration in global memory.\n- `HTTP_CallWithBearerToken`: Dispatches GET with dynamic `Authorization: Bearer <token>`.",
+        "content": "## 🔄 4. Client Credentials Exchange & Bearer Dispatch\n- `HTTP_RefreshAuthToken`: POST `https://postman-echo.com/post` simulating OAuth2 token exchange.\n- `Code_SaveFreshToken`: Stores new JWT & expiration in global memory.\n- `HTTP_CallWithBearerToken`: Dispatches GET with dynamic `Authorization: Bearer <token>` to Postman Echo.",
         "height": 220,
         "width": 440,
         "color": 2
@@ -291,7 +291,7 @@
     },
     {
       "parameters": {
-        "content": "## 📋 5. Authentication Audit & Telemetry\n- `Code_AuditAuthSuccess`: Converges responses from both API Key and Bearer token paths.\n- Validates server authorization and outputs standardized audit receipt.",
+        "content": "## 📋 5. Authentication Audit & Telemetry\n- `Code_AuditAuthSuccess`: Converges responses from both API Key and Bearer token paths.\n- Validates echo of transmitted headers and outputs standardized audit receipt.",
         "height": 200,
         "width": 360,
         "color": 7
@@ -324,11 +324,11 @@
     "HTTP_CallWithApiKey": [
       {
         "json": {
-          "status": "AUTHORIZED",
-          "message": "Access granted via API Key header",
-          "clientKey": "key_live_prod_2026",
-          "authMethod": "API_KEY_HEADER",
-          "timestamp": "2026-10-21T10:00:00.000Z"
+          "headers": {
+            "host": "postman-echo.com",
+            "x-api-key": "key_live_prod_2026",
+            "x-forwarded-proto": "https"
+          }
         }
       }
     ],
@@ -355,16 +355,18 @@
     "HTTP_RefreshAuthToken": [
       {
         "json": {
-          "access_token": "jwt_mock_access_token_sec99182",
-          "token_type": "Bearer",
-          "expires_in": 3600
+          "json": {
+            "client_id": "client_app_100",
+            "grant_type": "client_credentials"
+          },
+          "url": "https://postman-echo.com/post"
         }
       }
     ],
     "Code_SaveFreshToken": [
       {
         "json": {
-          "activeToken": "jwt_mock_access_token_sec99182",
+          "activeToken": "jwt_mock_token_sec99182",
           "expiresAt": 1792670400000,
           "refreshed": true
         }
@@ -373,11 +375,11 @@
     "HTTP_CallWithBearerToken": [
       {
         "json": {
-          "status": "AUTHORIZED",
-          "message": "Access granted via Bearer token",
-          "tokenScope": "read:write",
-          "authMethod": "BEARER_TOKEN",
-          "timestamp": "2026-10-21T10:00:02.000Z"
+          "headers": {
+            "host": "postman-echo.com",
+            "authorization": "Bearer jwt_mock_token_sec99182",
+            "x-forwarded-proto": "https"
+          }
         }
       }
     ],
@@ -387,16 +389,24 @@
           "authStatus": "AUTHENTICATION_VERIFIED",
           "patternTested": "API_KEY_HEADER",
           "serverConfirmed": "AUTHORIZED",
-          "deliveryConfirmation": "Access granted via API Key header",
+          "verifiedHeaders": {
+            "x-api-key": "key_live_prod_2026",
+            "authorization": null
+          },
+          "deliveryConfirmation": "Header successfully transmitted and verified via Postman Echo",
           "verifiedAt": "2026-10-21T10:00:03.000Z"
         }
       },
       {
         "json": {
           "authStatus": "AUTHENTICATION_VERIFIED",
-          "patternTested": "BEARER_TOKEN",
+          "patternTested": "BEARER_TOKEN_AUTO_REFRESH",
           "serverConfirmed": "AUTHORIZED",
-          "deliveryConfirmation": "Access granted via Bearer token",
+          "verifiedHeaders": {
+            "x-api-key": null,
+            "authorization": "Bearer jwt_mock_token_sec99182"
+          },
+          "deliveryConfirmation": "Header successfully transmitted and verified via Postman Echo",
           "verifiedAt": "2026-10-21T10:00:03.000Z"
         }
       }

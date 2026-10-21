@@ -172,7 +172,7 @@ Add an n8n Switch node:
 ### Step 3: Implement Branch 0 — API Key Header Authentication (`HTTP_CallWithApiKey`)
 Connect an HTTP Request node to **Output 0**:
 - **Method:** `GET`
-- **URL:** `https://dummyjson.com/c/mock-protected-apikey`
+- **URL:** `https://postman-echo.com/headers`
 - **Send Headers:** `ON`
   - Name: `X-API-Key`
   - Value: `key_live_prod_2026`
@@ -218,7 +218,7 @@ Connect an IF Node to `Code_CheckTokenExpiry`:
 1. **Refresh Request (`HTTP_RefreshAuthToken`):**
    Connect to the **True (Top)** branch of `IF_TokenIsExpired`:
    - **Method:** `POST`
-   - **URL:** `https://dummyjson.com/c/mock-auth-token`
+   - **URL:** `https://postman-echo.com/post`
    - **Send Body:** `ON` (JSON)
    - **Body JSON:**
      ```json
@@ -253,7 +253,7 @@ Add an HTTP Request node named `HTTP_CallWithBearerToken`:
 - **Connection B (Cache Hit):** Connect the **False (Bottom)** branch of `IF_TokenIsExpired` directly to `HTTP_CallWithBearerToken`.
 - **Parameters:**
   - **Method:** `GET`
-  - **URL:** `https://dummyjson.com/c/mock-protected-bearer`
+  - **URL:** `https://postman-echo.com/headers`
   - **Send Headers:** `ON`
     - Name: `Authorization`
     - Value: `={{ 'Bearer ' + ($json.activeToken || $json.cachedToken) }}`
