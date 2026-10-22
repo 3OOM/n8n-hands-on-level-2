@@ -1,0 +1,738 @@
+{
+  "name": "N8N_PRJ_03_Employee_Onboarding",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e9a10001-0001-4000-8000-000000000001",
+      "name": "Manual_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "e9a10001-0002-4000-8000-000000000002",
+      "name": "Schedule_Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        180,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "Employee_Onboarding_Register",
+          "mode": "name"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status",
+              "lookupValue": "Pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e9a10001-0003-4000-8000-000000000003",
+      "name": "Google_Sheets_ReadPendingHires",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        460,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "e9a10001-0004-4000-8000-000000000004",
+      "name": "Split_in_Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        720,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-eng",
+                    "leftValue": "={{ $json.Department.trim().toLowerCase() }}",
+                    "rightValue": "engineering",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-sales",
+                    "leftValue": "={{ $json.Department.trim().toLowerCase() }}",
+                    "rightValue": "sales",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
+      },
+      "id": "e9a10001-0005-4000-8000-000000000005",
+      "name": "Switch_RouteByDepartment",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        980,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "Employee_ID",
+              "type": "string",
+              "value": "={{ $json.Employee_ID }}"
+            },
+            {
+              "name": "Full_Name",
+              "type": "string",
+              "value": "={{ $json.Full_Name }}"
+            },
+            {
+              "name": "Personal_Email",
+              "type": "string",
+              "value": "={{ $json.Personal_Email }}"
+            },
+            {
+              "name": "Department",
+              "type": "string",
+              "value": "={{ $json.Department }}"
+            },
+            {
+              "name": "Role_Title",
+              "type": "string",
+              "value": "={{ $json.Role_Title }}"
+            },
+            {
+              "name": "Kit_Title",
+              "type": "string",
+              "value": "Engineering TechStack & Setup"
+            },
+            {
+              "name": "Handbook_Link",
+              "type": "string",
+              "value": "https://wiki.company.internal/engineering/handbook"
+            },
+            {
+              "name": "Department_Mentor",
+              "type": "string",
+              "value": "Alex Rivera (Senior Tech Mentor - alex.r@company.com)"
+            },
+            {
+              "name": "Setup_Instructions",
+              "type": "string",
+              "value": "1. Accept GitHub organization invitation at github.com/company-dev\n2. Configure AWS sandbox and Docker local cluster\n3. Review IDE styling guide and architecture wiki"
+            },
+            {
+              "name": "emailSubject",
+              "type": "string",
+              "value": "=Welcome to the Team, {{ $json.Full_Name }}!"
+            },
+            {
+              "name": "emailHtml",
+              "type": "string",
+              "value": "=<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;\">\n  <div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 28px; text-align: center; color: #ffffff;\">\n    <h1 style=\"margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #38bdf8;\">🚀 Welcome to the Engineering Team!</h1>\n    <p style=\"margin: 0; font-size: 15px; color: #94a3b8;\">We are thrilled to welcome you, <strong>{{ $json.Full_Name }}</strong>, as our new <strong>{{ $json.Role_Title }}</strong>.</p>\n  </div>\n  <div style=\"padding: 28px;\">\n    <p style=\"font-size: 15px; line-height: 1.6; color: #334155;\">Hello <strong>{{ $json.Full_Name }}</strong>,</p>\n    <p style=\"font-size: 14px; line-height: 1.6; color: #475569;\">Your engineering workstation and cloud permissions have been provisioned. Below is your <strong>{{ $json.Kit_Title }}</strong> package with first-week action items:</p>\n    \n    <div style=\"background: #f8fafc; border-left: 4px solid #0284c7; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #0369a1; font-size: 15px;\">🛠️ Setup Instructions & Tooling</h3>\n      <ul style=\"margin: 0; padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.8;\">\n        <li><strong>GitHub Organization:</strong> Accept your invitation at <a href=\"https://github.com/orgs/company-dev/invitation\" style=\"color: #0284c7;\">github.com/company-dev</a></li>\n        <li><strong>AWS Sandbox:</strong> Configure AWS SSO and Docker local container cluster.</li>\n        <li><strong>Engineering Handbook:</strong> <a href=\"{{ $json.Handbook_Link }}\" style=\"color: #0284c7;\">Architecture Wiki & IDE Guidelines</a></li>\n      </ul>\n    </div>\n\n    <div style=\"background: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #047857; font-size: 15px;\">👥 Your Department Mentor</h3>\n      <p style=\"margin: 0; font-size: 14px; color: #334155; line-height: 1.6;\">\n        <strong>{{ $json.Department_Mentor }}</strong><br/>\n        Slack: <code>@alex-rivera</code> &bull; Standup: Daily 10:00 AM EST (<code>#engineering-general</code>)\n      </p>\n    </div>\n\n    <p style=\"font-size: 14px; color: #334155; margin-top: 24px;\">Happy coding!<br/><strong>Engineering Leadership Team</strong></p>\n  </div>\n  <div style=\"background: #f1f5f9; padding: 14px 28px; text-align: center; font-size: 12px; color: #64748b;\">\n    Employee ID: {{ $json.Employee_ID }} &bull; Department: Engineering &bull; Automated Onboarding System\n  </div>\n</div>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e9a10001-0006-4000-8000-000000000006",
+      "name": "Set_Engineering_Materials",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1240,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "Employee_ID",
+              "type": "string",
+              "value": "={{ $json.Employee_ID }}"
+            },
+            {
+              "name": "Full_Name",
+              "type": "string",
+              "value": "={{ $json.Full_Name }}"
+            },
+            {
+              "name": "Personal_Email",
+              "type": "string",
+              "value": "={{ $json.Personal_Email }}"
+            },
+            {
+              "name": "Department",
+              "type": "string",
+              "value": "={{ $json.Department }}"
+            },
+            {
+              "name": "Role_Title",
+              "type": "string",
+              "value": "={{ $json.Role_Title }}"
+            },
+            {
+              "name": "Kit_Title",
+              "type": "string",
+              "value": "Sales Acceleration & CRM Kit"
+            },
+            {
+              "name": "Handbook_Link",
+              "type": "string",
+              "value": "https://wiki.company.internal/sales/handbook"
+            },
+            {
+              "name": "Department_Mentor",
+              "type": "string",
+              "value": "Jessica Vance (Sales Mentor / VP of Sales - jessica.v@company.com)"
+            },
+            {
+              "name": "Setup_Instructions",
+              "type": "string",
+              "value": "1. Log in to HubSpot CRM portal via corporate SSO\n2. Review Q4 territory allocation & quota matrix\n3. Download sales pitch deck and competitor battlecards"
+            },
+            {
+              "name": "emailSubject",
+              "type": "string",
+              "value": "=Welcome to the Team, {{ $json.Full_Name }}!"
+            },
+            {
+              "name": "emailHtml",
+              "type": "string",
+              "value": "=<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;\">\n  <div style=\"background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); padding: 32px 28px; text-align: center; color: #ffffff;\">\n    <h1 style=\"margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #6ee7b7;\">💼 Welcome to the Sales Team!</h1>\n    <p style=\"margin: 0; font-size: 15px; color: #a7f3d0;\">Welcome aboard, <strong>{{ $json.Full_Name }}</strong>! Role: <strong>{{ $json.Role_Title }}</strong>.</p>\n  </div>\n  <div style=\"padding: 28px;\">\n    <p style=\"font-size: 15px; line-height: 1.6; color: #334155;\">Hello <strong>{{ $json.Full_Name }}</strong>,</p>\n    <p style=\"font-size: 14px; line-height: 1.6; color: #475569;\">We are excited to have you join our high-growth Revenue team. Here is your <strong>{{ $json.Kit_Title }}</strong> package with onboarding links:</p>\n    \n    <div style=\"background: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #047857; font-size: 15px;\">📈 Setup Instructions & CRM</h3>\n      <ul style=\"margin: 0; padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.8;\">\n        <li><strong>HubSpot CRM Portal:</strong> Log in at <a href=\"https://app.hubspot.com/login\" style=\"color: #059669;\">app.hubspot.com</a> using your corporate SSO.</li>\n        <li><strong>Territory & Quota:</strong> Review the Q4 Enterprise Territory Allocation & Commission Guide.</li>\n        <li><strong>Sales Playbook:</strong> <a href=\"{{ $json.Handbook_Link }}\" style=\"color: #059669;\">Pitch Deck, Battlecards & Collateral</a></li>\n      </ul>\n    </div>\n\n    <div style=\"background: #f8fafc; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #b45309; font-size: 15px;\">🤝 Your Department Mentor</h3>\n      <p style=\"margin: 0; font-size: 14px; color: #334155; line-height: 1.6;\">\n        <strong>{{ $json.Department_Mentor }}</strong><br/>\n        Slack: <code>@jessica-vance</code> &bull; Revenue Sync: Tuesday 11:00 AM EST (<code>#sales-announcements</code>)\n      </p>\n    </div>\n\n    <p style=\"font-size: 14px; color: #334155; margin-top: 24px;\">Here's to crushing quota together!<br/><strong>Global Sales Leadership</strong></p>\n  </div>\n  <div style=\"background: #f1f5f9; padding: 14px 28px; text-align: center; font-size: 12px; color: #64748b;\">\n    Employee ID: {{ $json.Employee_ID }} &bull; Department: Sales &bull; Automated Onboarding System\n  </div>\n</div>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e9a10001-0007-4000-8000-000000000007",
+      "name": "Set_Sales_Materials",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1240,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "Employee_ID",
+              "type": "string",
+              "value": "={{ $json.Employee_ID }}"
+            },
+            {
+              "name": "Full_Name",
+              "type": "string",
+              "value": "={{ $json.Full_Name }}"
+            },
+            {
+              "name": "Personal_Email",
+              "type": "string",
+              "value": "={{ $json.Personal_Email }}"
+            },
+            {
+              "name": "Department",
+              "type": "string",
+              "value": "={{ $json.Department }}"
+            },
+            {
+              "name": "Role_Title",
+              "type": "string",
+              "value": "={{ $json.Role_Title }}"
+            },
+            {
+              "name": "Kit_Title",
+              "type": "string",
+              "value": "General Employee Welcome Kit"
+            },
+            {
+              "name": "Handbook_Link",
+              "type": "string",
+              "value": "https://wiki.company.internal/hr/handbook"
+            },
+            {
+              "name": "Department_Mentor",
+              "type": "string",
+              "value": "Rachel Green (People Operations Partner - rachel.g@company.com)"
+            },
+            {
+              "name": "Setup_Instructions",
+              "type": "string",
+              "value": "1. Access HR benefits portal and complete health/401(k) election\n2. Review corporate holiday calendar\n3. Submit payroll direct deposit form in Workday"
+            },
+            {
+              "name": "emailSubject",
+              "type": "string",
+              "value": "=Welcome to the Team, {{ $json.Full_Name }}!"
+            },
+            {
+              "name": "emailHtml",
+              "type": "string",
+              "value": "=<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;\">\n  <div style=\"background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%); padding: 32px 28px; text-align: center; color: #ffffff;\">\n    <h1 style=\"margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #c4b5fd;\">🏢 Welcome to the Company!</h1>\n    <p style=\"margin: 0; font-size: 15px; color: #ddd6fe;\">Welcome, <strong>{{ $json.Full_Name }}</strong>! Role: <strong>{{ $json.Role_Title }}</strong>.</p>\n  </div>\n  <div style=\"padding: 28px;\">\n    <p style=\"font-size: 15px; line-height: 1.6; color: #334155;\">Hello <strong>{{ $json.Full_Name }}</strong>,</p>\n    <p style=\"font-size: 14px; line-height: 1.6; color: #475569;\">Welcome to our organization! As part of {{ $json.Department }}, here is your <strong>{{ $json.Kit_Title }}</strong> with Day 1 action items:</p>\n    \n    <div style=\"background: #f8fafc; border-left: 4px solid #8b5cf6; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #6d28d9; font-size: 15px;\">📘 Employee Handbook & Benefits</h3>\n      <ul style=\"margin: 0; padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.8;\">\n        <li><strong>Corporate Handbook:</strong> <a href=\"{{ $json.Handbook_Link }}\" style=\"color: #7c3aed;\">Read & Sign Intranet Acknowledgment</a></li>\n        <li><strong>Benefits Enrollment:</strong> Complete healthcare and 401(k) election within 30 days at <a href=\"https://benefits.company.com/portal\" style=\"color: #7c3aed;\">benefits.company.com</a>.</li>\n        <li><strong>Time-Tracking & Payroll:</strong> Set up your direct deposit in Workday.</li>\n      </ul>\n    </div>\n\n    <div style=\"background: #f8fafc; border-left: 4px solid #6366f1; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #4338ca; font-size: 15px;\">🤝 Your People Operations Partner</h3>\n      <p style=\"margin: 0; font-size: 14px; color: #334155; line-height: 1.6;\">\n        <strong>{{ $json.Department_Mentor }}</strong><br/>\n        Slack: <code>@rachel-green</code> &bull; Support Channel: <code>#people-support</code>\n      </p>\n    </div>\n\n    <p style=\"font-size: 14px; color: #334155; margin-top: 24px;\">Warm regards,<br/><strong>People & Operations Team</strong></p>\n  </div>\n  <div style=\"background: #f1f5f9; padding: 14px 28px; text-align: center; font-size: 12px; color: #64748b;\">\n    Employee ID: {{ $json.Employee_ID }} &bull; Department: {{ $json.Department }} &bull; Automated Onboarding System\n  </div>\n</div>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e9a10001-0008-4000-8000-000000000008",
+      "name": "Set_HROps_Materials",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1240,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Personal_Email }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailHtml }}",
+        "options": {}
+      },
+      "id": "e9a10001-0009-4000-8000-000000000009",
+      "name": "Gmail_SendWelcomeEmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1520,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "Employee_Onboarding_Register",
+          "mode": "name"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "Employee_ID"
+          ],
+          "schema": [
+            {
+              "id": "Employee_ID",
+              "displayName": "Employee_ID",
+              "required": true,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Processed_At",
+              "displayName": "Processed_At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "value": {
+            "Employee_ID": "={{ $json.Employee_ID }}",
+            "Status": "Onboarded",
+            "Processed_At": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "e9a10001-0010-4000-8000-000000000010",
+      "name": "Google_Sheets_UpdateRow",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "hr-operations@company.com",
+        "subject": "[COMPLETED] Daily Employee Onboarding Dispatch Summary",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;\">\n  <div style=\"background: #0f172a; padding: 24px; color: #ffffff; text-align: center;\">\n    <h2 style=\"margin: 0; font-size: 20px; color: #38bdf8;\">✅ Employee Onboarding Pipeline Completed</h2>\n    <p style=\"margin: 6px 0 0 0; font-size: 14px; color: #94a3b8;\">All pending candidate batches have been processed and updated.</p>\n  </div>\n  <div style=\"padding: 24px;\">\n    <p style=\"font-size: 14px; color: #334155; line-height: 1.6;\">Hello HR Operations Team,</p>\n    <p style=\"font-size: 14px; color: #475569; line-height: 1.6;\">The scheduled <strong>Employee Onboarding Dispatcher</strong> workflow has finished executing. All pending records in <code>Employee_Onboarding_Register</code> have received their tailored welcome packages and their statuses have been stamped as <strong>Onboarded</strong>.</p>\n    <div style=\"background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 18px 0;\">\n      <h4 style=\"margin: 0 0 8px 0; color: #0f172a;\">Audit Details</h4>\n      <ul style=\"margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.6;\">\n        <li><strong>Google Sheet:</strong> Employee_Onboarding_Register (Sheet1)</li>\n        <li><strong>Timestamp:</strong> {{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}</li>\n        <li><strong>Next Scheduled Scan:</strong> Weekdays at 09:00 AM EST</li>\n      </ul>\n    </div>\n    <p style=\"font-size: 13px; color: #64748b;\">This is an automated operational notification generated by n8n.</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "e9a10001-0011-4000-8000-000000000011",
+      "name": "Gmail_HRAdminNotification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        980,
+        500
+      ]
+    }
+  ],
+  "pinData": {
+    "Google_Sheets_ReadPendingHires": [
+      {
+        "json": {
+          "Employee_ID": "EMP-1082",
+          "Full_Name": "David Miller",
+          "Personal_Email": "abhishek3nikam@gmail.com",
+          "Department": "Engineering",
+          "Role_Title": "Frontend Developer",
+          "Status": "Pending",
+          "Processed_At": ""
+        }
+      },
+      {
+        "json": {
+          "Employee_ID": "EMP-1083",
+          "Full_Name": "Sarah Jenkins",
+          "Personal_Email": "sarah.jenkins.test@gmail.com",
+          "Department": "Sales",
+          "Role_Title": "Account Executive",
+          "Status": "Pending",
+          "Processed_At": ""
+        }
+      }
+    ],
+    "Split_in_Batches": [
+      {
+        "json": {
+          "Employee_ID": "EMP-1082",
+          "Full_Name": "David Miller",
+          "Personal_Email": "abhishek3nikam@gmail.com",
+          "Department": "Engineering",
+          "Role_Title": "Frontend Developer",
+          "Status": "Pending",
+          "Processed_At": ""
+        }
+      }
+    ],
+    "Switch_RouteByDepartment": [
+      {
+        "json": {
+          "Employee_ID": "EMP-1082",
+          "Full_Name": "David Miller",
+          "Personal_Email": "abhishek3nikam@gmail.com",
+          "Department": "Engineering",
+          "Role_Title": "Frontend Developer",
+          "Status": "Pending",
+          "Processed_At": ""
+        }
+      }
+    ],
+    "Set_Engineering_Materials": [
+      {
+        "json": {
+          "Employee_ID": "EMP-1082",
+          "Full_Name": "David Miller",
+          "Personal_Email": "abhishek3nikam@gmail.com",
+          "Department": "Engineering",
+          "Role_Title": "Frontend Developer",
+          "Kit_Title": "Engineering TechStack & Setup",
+          "Handbook_Link": "https://wiki.company.internal/engineering/handbook",
+          "Department_Mentor": "Alex Rivera (Senior Tech Mentor - alex.r@company.com)",
+          "Setup_Instructions": "1. Accept GitHub organization invitation at github.com/company-dev\n2. Configure AWS sandbox and Docker local cluster\n3. Review IDE styling guide and architecture wiki",
+          "emailSubject": "Welcome to the Team, David Miller!",
+          "emailHtml": "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;\">\n  <div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 28px; text-align: center; color: #ffffff;\">\n    <h1 style=\"margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #38bdf8;\">🚀 Welcome to the Engineering Team!</h1>\n    <p style=\"margin: 0; font-size: 15px; color: #94a3b8;\">We are thrilled to welcome you, <strong>David Miller</strong>, as our new <strong>Frontend Developer</strong>.</p>\n  </div>\n  <div style=\"padding: 28px;\">\n    <p style=\"font-size: 15px; line-height: 1.6; color: #334155;\">Hello <strong>David Miller</strong>,</p>\n    <p style=\"font-size: 14px; line-height: 1.6; color: #475569;\">Your engineering workstation and cloud permissions have been provisioned. Below is your <strong>Engineering TechStack & Setup</strong> package with first-week action items:</p>\n    \n    <div style=\"background: #f8fafc; border-left: 4px solid #0284c7; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #0369a1; font-size: 15px;\">🛠️ Setup Instructions & Tooling</h3>\n      <ul style=\"margin: 0; padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.8;\">\n        <li><strong>GitHub Organization:</strong> Accept your invitation at <a href=\"https://github.com/orgs/company-dev/invitation\" style=\"color: #0284c7;\">github.com/company-dev</a></li>\n        <li><strong>AWS Sandbox:</strong> Configure AWS SSO and Docker local container cluster.</li>\n        <li><strong>Engineering Handbook:</strong> <a href=\"https://wiki.company.internal/engineering/handbook\" style=\"color: #0284c7;\">Architecture Wiki & IDE Guidelines</a></li>\n      </ul>\n    </div>\n\n    <div style=\"background: #f8fafc; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #047857; font-size: 15px;\">👥 Your Department Mentor</h3>\n      <p style=\"margin: 0; font-size: 14px; color: #334155; line-height: 1.6;\">\n        <strong>Alex Rivera (Senior Tech Mentor - alex.r@company.com)</strong><br/>\n        Slack: <code>@alex-rivera</code> &bull; Standup: Daily 10:00 AM EST (<code>#engineering-general</code>)\n      </p>\n    </div>\n\n    <p style=\"font-size: 14px; color: #334155; margin-top: 24px;\">Happy coding!<br/><strong>Engineering Leadership Team</strong></p>\n  </div>\n  <div style=\"background: #f1f5f9; padding: 14px 28px; text-align: center; font-size: 12px; color: #64748b;\">\n    Employee ID: EMP-1082 &bull; Department: Engineering &bull; Automated Onboarding System\n  </div>\n</div>"
+        }
+      }
+    ],
+    "Gmail_SendWelcomeEmail": [
+      {
+        "json": {
+          "id": "18c0192736184a2b",
+          "threadId": "18c0192736184a2b",
+          "labelIds": [
+            "SENT"
+          ]
+        }
+      }
+    ],
+    "Google_Sheets_UpdateRow": [
+      {
+        "json": {
+          "Employee_ID": "EMP-1082",
+          "Full_Name": "David Miller",
+          "Personal_Email": "abhishek3nikam@gmail.com",
+          "Department": "Engineering",
+          "Role_Title": "Frontend Developer",
+          "Status": "Onboarded",
+          "Processed_At": "2026-10-22 14:30:00"
+        }
+      }
+    ],
+    "Gmail_HRAdminNotification": [
+      {
+        "json": {
+          "id": "18c0192847a98b12",
+          "threadId": "18c0192847a98b12",
+          "labelIds": [
+            "SENT"
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Manual_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google_Sheets_ReadPendingHires",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google_Sheets_ReadPendingHires",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_Sheets_ReadPendingHires": {
+      "main": [
+        [
+          {
+            "node": "Split_in_Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_in_Batches": {
+      "main": [
+        [
+          {
+            "node": "Switch_RouteByDepartment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail_HRAdminNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_RouteByDepartment": {
+      "main": [
+        [
+          {
+            "node": "Set_Engineering_Materials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_Sales_Materials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set_HROps_Materials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Engineering_Materials": {
+      "main": [
+        [
+          {
+            "node": "Gmail_SendWelcomeEmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Sales_Materials": {
+      "main": [
+        [
+          {
+            "node": "Gmail_SendWelcomeEmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_HROps_Materials": {
+      "main": [
+        [
+          {
+            "node": "Gmail_SendWelcomeEmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail_SendWelcomeEmail": {
+      "main": [
+        [
+          {
+            "node": "Google_Sheets_UpdateRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_Sheets_UpdateRow": {
+      "main": [
+        [
+          {
+            "node": "Split_in_Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f9d0e1f2-8b6a-4c1e-9905-onboardingdispatcher",
+  "meta": {
+    "instanceId": "tayana-enterprise-n8n-level-2-topic-9"
+  },
+  "id": "N8N_PRJ_03_Employee_Onboarding",
+  "tags": [
+    {
+      "name": "N8N-PRJ-03",
+      "id": "prj03"
+    },
+    {
+      "name": "Level-2-Intermediate",
+      "id": "lvl2"
+    },
+    {
+      "name": "HR-Automation",
+      "id": "hr-automation"
+    },
+    {
+      "name": "Google-Sheets",
+      "id": "google-sheets"
+    },
+    {
+      "name": "Gmail",
+      "id": "gmail"
+    }
+  ]
+}
